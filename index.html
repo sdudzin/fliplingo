@@ -55,11 +55,15 @@ function shuffleArray(arr) {
   return a;
 }
 
-function SetupScreen({ onStart, cards, onCardsChange }) {
-  const [langA, setLangA] = useState("Français");
-  const [langB, setLangB] = useState("Nederlands");
-  const [direction, setDirection] = useState("a-to-b");
-  const [shuffle, setShuffle] = useState(true);
+const DEFAULT_SETTINGS = { langA: "Français", langB: "Nederlands", direction: "a-to-b", shuffle: true };
+
+function SetupScreen({ onStart, cards, onCardsChange, settings, onSettingsChange }) {
+  // Settings live in the parent so they survive leaving and returning to setup
+  const { langA, langB, direction, shuffle } = settings;
+  const setLangA = (langA) => onSettingsChange((s) => ({ ...s, langA }));
+  const setLangB = (langB) => onSettingsChange((s) => ({ ...s, langB }));
+  const setDirection = (direction) => onSettingsChange((s) => ({ ...s, direction }));
+  const setShuffle = (shuffle) => onSettingsChange((s) => ({ ...s, shuffle }));
   const [editMode, setEditMode] = useState(false);
   const [editText, setEditText] = useState("");
 
@@ -74,6 +78,7 @@ function SetupScreen({ onStart, cards, onCardsChange }) {
       langA,
       langB,
       direction,
+      shuffle,
     });
   };
 
@@ -315,11 +320,19 @@ function FlipLingo() {
   const [sessionCards, setSessionCards] = useState([]);
   const [sessionConfig, setSessionConfig] = useState(null);
   const [results, setResults] = useState([]);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  // Bumped once per session so PracticeScreen remounts on a new session, never on a re-render
+  const [sessionId, setSessionId] = useState(0);
+
+  const startSession = (sessionCards) => {
+    setSessionCards(sessionCards);
+    setSessionId((id) => id + 1);
+    setPhase(PHASES.PRACTICE);
+  };
 
   const handleStart = (config) => {
-    setSessionCards(config.cards);
     setSessionConfig(config);
-    setPhase(PHASES.PRACTICE);
+    startSession(config.cards);
   };
 
   const handleFinish = (res) => {
@@ -328,9 +341,9 @@ function FlipLingo() {
   };
 
   const handleRestart = () => {
-    const reshuffled = shuffleArray(sessionCards);
-    setSessionCards(reshuffled);
-    setPhase(PHASES.PRACTICE);
+    // The full set prepared at start, not sessionCards, which may be a mistakes-only retry
+    const full = sessionConfig.cards;
+    startSession(sessionConfig.shuffle ? shuffleArray(full) : full);
   };
 
   const handleRetryMistakes = () => {
@@ -338,15 +351,16 @@ function FlipLingo() {
     const retryCards = shuffleArray(
       incorrect.map((r) => ({ question: r.question, answer: r.answer, qLang: r.qLang, aLang: r.aLang }))
     );
-    setSessionCards(retryCards);
-    setPhase(PHASES.PRACTICE);
+    startSession(retryCards);
   };
 
   return (
     <div style={styles.app}>
-      {phase === PHASES.SETUP && <SetupScreen onStart={handleStart} cards={cards} onCardsChange={setCards} />}
+      {phase === PHASES.SETUP && (
+        <SetupScreen onStart={handleStart} cards={cards} onCardsChange={setCards} settings={settings} onSettingsChange={setSettings} />
+      )}
       {phase === PHASES.PRACTICE && (
-        <PracticeScreen key={sessionCards.length + Math.random()} cards={sessionCards} onFinish={handleFinish} onBack={() => setPhase(PHASES.SETUP)} />
+        <PracticeScreen key={sessionId} cards={sessionCards} onFinish={handleFinish} onBack={() => setPhase(PHASES.SETUP)} />
       )}
       {phase === PHASES.RESULTS && (
         <ResultsScreen results={results} onRestart={handleRestart} onRetryMistakes={handleRetryMistakes} onSetup={() => setPhase(PHASES.SETUP)} />
