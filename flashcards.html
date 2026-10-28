@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlipLingo – Interactive Language Flashcards</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,400;9..144,700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: linear-gradient(145deg, #0f0f1a 0%, #1a1a2e 40%, #16213e 100%); min-height: 100vh; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback, useEffect } = React;
+
+const SAMPLE_CARDS = [
+  { front: "maison", back: "huis" },
+  { front: "livre", back: "boek" },
+  { front: "eau", back: "water" },
+  { front: "école", back: "school" },
+  { front: "ami", back: "vriend" },
+  { front: "rue", back: "straat" },
+  { front: "fleur", back: "bloem" },
+  { front: "soleil", back: "zon" },
+  { front: "porte", back: "deur" },
+  { front: "table", back: "tafel" },
+  { front: "chaise", back: "stoel" },
+  { front: "train", back: "trein" },
+  { front: "vélo", back: "fiets" },
+  { front: "pain", back: "brood" },
+  { front: "lait", back: "melk" },
+];
+
+const PHASES = { SETUP: "setup", PRACTICE: "practice", RESULTS: "results" };
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function SetupScreen({ onStart, cards, onCardsChange }) {
+  const [langA, setLangA] = useState("Français");
+  const [langB, setLangB] = useState("Nederlands");
+  const [direction, setDirection] = useState("a-to-b");
+  const [shuffle, setShuffle] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editText, setEditText] = useState("");
+
+  const handleStart = () => {
+    const prepared = cards.map((c) =>
+      direction === "a-to-b"
+        ? { question: c.front, answer: c.back, qLang: langA, aLang: langB }
+        : { question: c.back, answer: c.front, qLang: langB, aLang: langA }
+    );
+    onStart({
+      cards: shuffle ? shuffleArray(prepared) : prepared,
+      langA,
+      langB,
+      direction,
+    });
+  };
+
+  const openEditor = () => {
+    setEditText(cards.map((c) => `${c.front} | ${c.back}`).join("\n"));
+    setEditMode(true);
+  };
+
+  const saveEditor = () => {
+    const parsed = editText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes("|"))
+      .map((line) => {
+        const [front, back] = line.split("|").map((s) => s.trim());
+        return { front, back };
+      })
+      .filter((c) => c.front && c.back);
+    if (parsed.length > 0) onCardsChange(parsed);
+    setEditMode(false);
+  };
+
+  return (
+    <div style={styles.setupContainer}>
+      <div style={styles.logoArea}>
+        <div style={styles.logoIcon}>⟳</div>
+        <h1 style={styles.title}>FlipLingo</h1>
+        <p style={styles.subtitle}>Interactive Language Flashcards</p>
+      </div>
+
+      <div style={styles.setupCard}>
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Language A (front)</label>
+          <input style={styles.input} value={langA} onChange={(e) => setLangA(e.target.value)} placeholder="e.g. Français" />
+        </div>
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Language B (back)</label>
+          <input style={styles.input} value={langB} onChange={(e) => setLangB(e.target.value)} placeholder="e.g. Français" />
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.label}>Test direction</label>
+          <div style={styles.directionToggle}>
+            <button style={{ ...styles.dirBtn, ...(direction === "a-to-b" ? styles.dirBtnActive : {}) }} onClick={() => setDirection("a-to-b")}>
+              {langA || "A"} → {langB || "B"}
+            </button>
+            <button style={{ ...styles.dirBtn, ...(direction === "b-to-a" ? styles.dirBtnActive : {}) }} onClick={() => setDirection("b-to-a")}>
+              {langB || "B"} → {langA || "A"}
+            </button>
+          </div>
+        </div>
+
+        <div style={styles.fieldGroup}>
+          <label style={styles.checkLabel}>
+            <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} style={styles.checkbox} />
+            Shuffle cards
+          </label>
+        </div>
+
+        <div style={styles.cardCount}>
+          <span style={styles.countBadge}>{cards.length}</span> cards loaded
+          <button style={styles.editBtn} onClick={openEditor}>Edit cards</button>
+        </div>
+
+        {editMode && (
+          <div style={styles.editorArea}>
+            <p style={styles.editorHint}>One card per line: <code>front | back</code></p>
+            <textarea style={styles.textarea} value={editText} onChange={(e) => setEditText(e.target.value)} rows={10} />
+            <div style={styles.editorActions}>
+              <button style={styles.saveBtn} onClick={saveEditor}>Save</button>
+              <button style={styles.cancelBtn} onClick={() => setEditMode(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        <button style={styles.startBtn} onClick={handleStart}>Start Practice</button>
+      </div>
+    </div>
+  );
+}
+
+function FlashCard({ card, isFlipped, onFlip }) {
+  return (
+    <div style={styles.cardScene} onClick={onFlip}>
+      <div style={{ ...styles.cardInner, transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
+        <div style={styles.cardFace}>
+          <span style={styles.cardLang}>{card.qLang}</span>
+          <span style={styles.cardWord}>{card.question}</span>
+          <span style={styles.tapHint}>tap to flip</span>
+        </div>
+        <div style={{ ...styles.cardFace, ...styles.cardBack }}>
+          <span style={styles.cardLang}>{card.aLang}</span>
+          <span style={styles.cardWord}>{card.answer}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PracticeScreen({ cards, onFinish, onBack }) {
+  const [index, setIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [results, setResults] = useState([]);
+  const [animating, setAnimating] = useState(false);
+
+  const current = cards[index];
+  const progress = ((index) / cards.length) * 100;
+
+  const handleMark = (correct) => {
+    if (animating) return;
+    setAnimating(true);
+    const newResults = [...results, { ...current, correct }];
+    setResults(newResults);
+
+    // First: flip card back to front side
+    setFlipped(false);
+
+    // Then: wait for flip animation to finish before showing next card
+    setTimeout(() => {
+      if (index + 1 >= cards.length) {
+        onFinish(newResults);
+      } else {
+        setIndex(index + 1);
+        setAnimating(false);
+      }
+    }, 550);
+  };
+
+  const correctCount = results.filter((r) => r.correct).length;
+
+  return (
+    <div style={styles.practiceContainer}>
+      <div style={styles.topBar}>
+        <div style={styles.progressInfo}>
+          <button style={styles.practiceBackBtn} onClick={onBack}>← Back</button>
+          <span style={styles.progressText}>{index + 1} / {cards.length}</span>
+          <span style={styles.scoreText}>✓ {correctCount} &nbsp; ✗ {results.length - correctCount}</span>
+        </div>
+        <div style={styles.progressTrack}>
+          <div style={{ ...styles.progressFill, width: `${progress}%` }} />
+        </div>
+      </div>
+
+      <FlashCard card={current} isFlipped={flipped} onFlip={() => setFlipped(!flipped)} />
+
+      {flipped && (
+        <div style={styles.markArea}>
+          <button style={{ ...styles.markBtn, ...styles.incorrectBtn }} onClick={() => handleMark(false)}>✗ Incorrect</button>
+          <button style={{ ...styles.markBtn, ...styles.correctBtn }} onClick={() => handleMark(true)}>✓ Correct</button>
+        </div>
+      )}
+
+      {!flipped && (
+        <p style={styles.flipPrompt}>Think of the answer, then tap the card to reveal</p>
+      )}
+    </div>
+  );
+}
+
+function ResultsScreen({ results, onRestart, onRetryMistakes, onSetup }) {
+  const correct = results.filter((r) => r.correct);
+  const incorrect = results.filter((r) => !r.correct);
+  const pct = Math.round((correct.length / results.length) * 100);
+
+  const getEmoji = () => {
+    if (pct === 100) return "🏆";
+    if (pct >= 80) return "🌟";
+    if (pct >= 60) return "💪";
+    return "📚";
+  };
+
+  const getMessage = () => {
+    if (pct === 100) return "Perfect score! Excellent work!";
+    if (pct >= 80) return "Great job! Almost there!";
+    if (pct >= 60) return "Good effort, keep practicing!";
+    return "Keep at it, practice makes perfect!";
+  };
+
+  return (
+    <div style={styles.resultsContainer}>
+      <div style={styles.resultsHeader}>
+        <span style={styles.resultEmoji}>{getEmoji()}</span>
+        <h2 style={styles.resultTitle}>Session Complete</h2>
+        <p style={styles.resultMessage}>{getMessage()}</p>
+      </div>
+
+      <div style={styles.scoreCircle}>
+        <svg viewBox="0 0 120 120" style={styles.scoreSvg}>
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#2a2a3a" strokeWidth="8" />
+          <circle cx="60" cy="60" r="52" fill="none" stroke={pct >= 60 ? "#4ade80" : "#f87171"} strokeWidth="8" strokeDasharray={`${(pct / 100) * 327} 327`} strokeLinecap="round" transform="rotate(-90 60 60)" style={{ transition: "stroke-dasharray 1s ease" }} />
+        </svg>
+        <div style={styles.scoreInner}>
+          <span style={styles.scorePct}>{pct}%</span>
+          <span style={styles.scoreDetail}>{correct.length}/{results.length}</span>
+        </div>
+      </div>
+
+      {incorrect.length > 0 && (
+        <div style={styles.mistakesList}>
+          <h3 style={styles.mistakesTitle}>Words to review</h3>
+          {incorrect.map((r, i) => (
+            <div key={i} style={styles.mistakeRow}>
+              <span style={styles.mistakeQ}>{r.question}</span>
+              <span style={styles.mistakeArrow}>→</span>
+              <span style={styles.mistakeA}>{r.answer}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={styles.resultActions}>
+        {incorrect.length > 0 && (
+          <button style={styles.retryBtn} onClick={onRetryMistakes}>Retry mistakes ({incorrect.length})</button>
+        )}
+        <button style={styles.againBtn} onClick={onRestart}>Restart full set</button>
+        <button style={styles.backBtn} onClick={onSetup}>← Back to setup</button>
+      </div>
+    </div>
+  );
+}
+
+function FlipLingo() {
+  const [phase, setPhase] = useState(PHASES.SETUP);
+  const [cards, setCards] = useState(SAMPLE_CARDS);
+  const [sessionCards, setSessionCards] = useState([]);
+  const [sessionConfig, setSessionConfig] = useState(null);
+  const [results, setResults] = useState([]);
+
+  const handleStart = (config) => {
+    setSessionCards(config.cards);
+    setSessionConfig(config);
+    setPhase(PHASES.PRACTICE);
+  };
+
+  const handleFinish = (res) => {
+    setResults(res);
+    setPhase(PHASES.RESULTS);
+  };
+
+  const handleRestart = () => {
+    const reshuffled = shuffleArray(sessionCards);
+    setSessionCards(reshuffled);
+    setPhase(PHASES.PRACTICE);
+  };
+
+  const handleRetryMistakes = () => {
+    const incorrect = results.filter((r) => !r.correct);
+    const retryCards = shuffleArray(
+      incorrect.map((r) => ({ question: r.question, answer: r.answer, qLang: r.qLang, aLang: r.aLang }))
+    );
+    setSessionCards(retryCards);
+    setPhase(PHASES.PRACTICE);
+  };
+
+  return (
+    <div style={styles.app}>
+      {phase === PHASES.SETUP && <SetupScreen onStart={handleStart} cards={cards} onCardsChange={setCards} />}
+      {phase === PHASES.PRACTICE && (
+        <PracticeScreen key={sessionCards.length + Math.random()} cards={sessionCards} onFinish={handleFinish} onBack={() => setPhase(PHASES.SETUP)} />
+      )}
+      {phase === PHASES.RESULTS && (
+        <ResultsScreen results={results} onRestart={handleRestart} onRetryMistakes={handleRetryMistakes} onSetup={() => setPhase(PHASES.SETUP)} />
+      )}
+    </div>
+  );
+}
+
+const styles = {
+  app: {
+    minHeight: "100vh",
+    background: "linear-gradient(145deg, #0f0f1a 0%, #1a1a2e 40%, #16213e 100%)",
+    fontFamily: "'DM Sans', sans-serif",
+    color: "#e8e8f0",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  setupContainer: { width: "100%", maxWidth: 480, padding: "40px 20px", animation: "fadeUp 0.5s ease" },
+  logoArea: { textAlign: "center", marginBottom: 32 },
+  logoIcon: { fontSize: 48, color: "#818cf8", marginBottom: 8 },
+  title: { fontFamily: "'Fraunces', serif", fontSize: 36, fontWeight: 700, letterSpacing: "-0.02em", background: "linear-gradient(135deg, #818cf8, #c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
+  subtitle: { fontSize: 14, color: "#8888aa", marginTop: 4, letterSpacing: "0.05em", textTransform: "uppercase" },
+  setupCard: { background: "rgba(255,255,255,0.04)", borderRadius: 20, padding: 28, border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(20px)" },
+  fieldGroup: { marginBottom: 20 },
+  label: { display: "block", fontSize: 13, fontWeight: 500, color: "#aaaacc", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" },
+  input: { width: "100%", padding: "12px 16px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#e8e8f0", fontSize: 16, fontFamily: "'DM Sans', sans-serif", outline: "none" },
+  directionToggle: { display: "flex", gap: 8 },
+  dirBtn: { flex: 1, padding: "12px 8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#8888aa", fontSize: 14, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", transition: "all 0.2s" },
+  dirBtnActive: { background: "rgba(129,140,248,0.15)", borderColor: "#818cf8", color: "#c4b5fd" },
+  checkLabel: { display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: "#bbbbd0", cursor: "pointer" },
+  checkbox: { width: 18, height: 18, accentColor: "#818cf8" },
+  cardCount: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#8888aa", marginBottom: 20 },
+  countBadge: { background: "rgba(129,140,248,0.2)", color: "#a5b4fc", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 13 },
+  editBtn: { marginLeft: "auto", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "#a5b4fc", padding: "6px 14px", borderRadius: 8, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
+  editorArea: { marginBottom: 20 },
+  editorHint: { fontSize: 12, color: "#666688", marginBottom: 8 },
+  textarea: { width: "100%", padding: 14, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#e0e0f0", fontSize: 14, fontFamily: "monospace", lineHeight: 1.6, resize: "vertical", outline: "none" },
+  editorActions: { display: "flex", gap: 8, marginTop: 10 },
+  saveBtn: { padding: "8px 20px", background: "#818cf8", border: "none", borderRadius: 8, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
+  cancelBtn: { padding: "8px 20px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#aaa", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
+  startBtn: { width: "100%", padding: "16px", background: "linear-gradient(135deg, #818cf8, #a78bfa)", border: "none", borderRadius: 14, color: "#fff", fontSize: 17, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em", transition: "transform 0.15s, box-shadow 0.15s", boxShadow: "0 4px 20px rgba(129,140,248,0.3)" },
+  practiceContainer: { width: "100%", maxWidth: 480, padding: "24px 20px", display: "flex", flexDirection: "column", alignItems: "center", animation: "fadeUp 0.4s ease" },
+  topBar: { width: "100%", marginBottom: 32 },
+  progressInfo: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  progressText: { fontSize: 14, fontWeight: 600, color: "#a5b4fc" },
+  practiceBackBtn: { background: "none", border: "1px solid rgba(255,255,255,0.1)", color: "#8888aa", padding: "4px 12px", borderRadius: 8, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "color 0.2s" },
+  scoreText: { fontSize: 14, color: "#8888aa" },
+  progressTrack: { width: "100%", height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", background: "linear-gradient(90deg, #818cf8, #c084fc)", borderRadius: 3, transition: "width 0.4s ease" },
+  cardScene: { width: 320, height: 220, perspective: 800, cursor: "pointer", marginBottom: 28 },
+  cardInner: { width: "100%", height: "100%", position: "relative", transformStyle: "preserve-3d", transition: "transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)" },
+  cardFace: { position: "absolute", width: "100%", height: "100%", backfaceVisibility: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 20, background: "linear-gradient(160deg, rgba(129,140,248,0.12), rgba(192,132,252,0.08))", border: "1px solid rgba(129,140,248,0.2)", padding: 20, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" },
+  cardBack: { transform: "rotateY(180deg)", background: "linear-gradient(160deg, rgba(74,222,128,0.12), rgba(52,211,153,0.08))", borderColor: "rgba(74,222,128,0.2)" },
+  cardLang: { fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8888aa", marginBottom: 8 },
+  cardWord: { fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 700, textAlign: "center", lineHeight: 1.2 },
+  tapHint: { position: "absolute", bottom: 16, fontSize: 11, color: "#555577", animation: "pulse 2s infinite" },
+  markArea: { display: "flex", gap: 16, width: "100%", maxWidth: 320, animation: "fadeUp 0.3s ease" },
+  markBtn: { flex: 1, padding: "14px", border: "none", borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "transform 0.1s" },
+  correctBtn: { background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" },
+  incorrectBtn: { background: "rgba(248,113,113,0.15)", color: "#f87171", border: "1px solid rgba(248,113,113,0.3)" },
+  flipPrompt: { fontSize: 14, color: "#555577", textAlign: "center", fontStyle: "italic" },
+  resultsContainer: { width: "100%", maxWidth: 480, padding: "32px 20px", animation: "fadeUp 0.5s ease" },
+  resultsHeader: { textAlign: "center", marginBottom: 24 },
+  resultEmoji: { fontSize: 52, display: "block", marginBottom: 8 },
+  resultTitle: { fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 700, marginBottom: 4 },
+  resultMessage: { fontSize: 15, color: "#8888aa" },
+  scoreCircle: { position: "relative", width: 140, height: 140, margin: "0 auto 28px" },
+  scoreSvg: { width: "100%", height: "100%" },
+  scoreInner: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
+  scorePct: { fontFamily: "'Fraunces', serif", fontSize: 34, fontWeight: 700 },
+  scoreDetail: { fontSize: 13, color: "#8888aa" },
+  mistakesList: { background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 20, marginBottom: 24, border: "1px solid rgba(255,255,255,0.06)" },
+  mistakesTitle: { fontSize: 14, fontWeight: 600, color: "#f87171", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.04em" },
+  mistakeRow: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", fontSize: 15 },
+  mistakeQ: { fontWeight: 600, color: "#c4b5fd" },
+  mistakeArrow: { color: "#555", fontSize: 12 },
+  mistakeA: { color: "#a5b4fc" },
+  resultActions: { display: "flex", flexDirection: "column", gap: 10 },
+  retryBtn: { padding: "14px", background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: 14, color: "#fca5a5", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
+  againBtn: { padding: "14px", background: "linear-gradient(135deg, #818cf8, #a78bfa)", border: "none", borderRadius: 14, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", boxShadow: "0 4px 20px rgba(129,140,248,0.25)" },
+  backBtn: { padding: "12px", background: "none", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, color: "#8888aa", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" },
+};
+
+ReactDOM.render(<FlipLingo />, document.getElementById("root"));
+</script>
+</body>
+</html>
