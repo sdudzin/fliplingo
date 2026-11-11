@@ -30,8 +30,15 @@ The first column is Language A (front), the second is Language B (back).
 
 ## Development
 
-Everything lives in `index.html`: React 18 and Babel standalone load from cdnjs, and the JSX in the page is compiled in the browser. Edit the file and reload. It must keep working when opened directly from disk, so there is no build step.
+Everything lives in `index.html`: React 18 and Babel standalone load from cdnjs, and the JSX in the page is compiled in the browser. The fonts are embedded in the page as base64. Edit the file and reload. It must keep working when opened directly from disk, so there is no build step.
+
+## Privacy
+
+FlipLingo sets no cookies, stores nothing in your browser, and has no analytics or tracking. Your decks and results never leave the page. Loading it contacts two services, which see your IP address like any web server:
+
+- **GitHub Pages**, which hosts the site (see the [GitHub General Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)).
+- **cdnjs** (Cloudflare), which serves the React and Babel scripts.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The embedded fonts, DM Sans and Fraunces, are licensed under the [SIL Open Font License 1.1](OFL.txt).
