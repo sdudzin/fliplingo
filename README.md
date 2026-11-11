@@ -4,7 +4,7 @@ Interactive two-language flashcards in a single HTML file. No install, no build,
 
 ## Use it
 
-- **Online:** open the GitHub Pages site for this repository.
+- **Online:** open <https://sdudzin.github.io/fliplingo/>.
 - **Offline:** download `index.html` and open it in your browser by double-clicking it. An internet connection is needed on first load to fetch React and Babel from a CDN.
 
 ## How it works
